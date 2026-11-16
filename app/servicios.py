@@ -28,6 +28,15 @@ def listar_gastos() -> list[Gasto]:
         return [gasto.copy() for gasto in _gastos]
 
 
+def eliminar_gasto(gasto_id: int) -> bool:
+    with _bloqueo:
+        for indice, gasto in enumerate(_gastos):
+            if gasto["id"] == gasto_id:
+                del _gastos[indice]
+                return True
+    return False
+
+
 def obtener_resumen() -> dict[str, int | float | dict[str, int | float]]:
     with _bloqueo:
         por_categoria: dict[str, int | float] = dict.fromkeys(CATEGORIAS, 0)

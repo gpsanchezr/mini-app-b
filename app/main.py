@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, StringConstraints
@@ -54,6 +54,13 @@ def crear_gasto(gasto: GastoEntrada) -> dict[str, int | str | float]:
 @app.get("/api/gastos")
 def listar_gastos() -> list[dict[str, int | str | float]]:
     return servicios.listar_gastos()
+
+
+@app.delete("/api/gastos/{gasto_id}", status_code=204)
+def eliminar_gasto(gasto_id: int) -> Response:
+    if not servicios.eliminar_gasto(gasto_id):
+        raise HTTPException(status_code=404, detail="No se encontró ese gasto.")
+    return Response(status_code=204)
 
 
 @app.get("/api/gastos/resumen")

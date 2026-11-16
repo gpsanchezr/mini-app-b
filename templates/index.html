@@ -78,7 +78,7 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>DESCRIPCIÓN</th><th>CATEGORÍA</th><th class="amount-cell">VALOR</th></tr></thead>
+              <thead><tr><th>DESCRIPCIÓN</th><th>CATEGORÍA</th><th class="amount-cell">VALOR</th><th>ACCIONES</th></tr></thead>
               <tbody id="lista-gastos">
                 <tr><td class="empty-cell" colspan="3"><strong>Cargando gastos…</strong></td></tr>
               </tbody>
@@ -125,7 +125,7 @@
         const fila = document.createElement("tr");
         const celda = document.createElement("td");
         celda.className = "empty-cell";
-        celda.colSpan = 3;
+        celda.colSpan = 4;
         celda.innerHTML = "<strong>Tu historial empieza aquí</strong><span>Agrega tu primer gasto para ver tu resumen.</span>";
         fila.append(celda);
         lista.append(fila);
@@ -147,7 +147,20 @@
           const valor = document.createElement("td");
           valor.className = "amount-cell amount-value";
           valor.textContent = formatoNumero.format(gasto.valor);
-          fila.append(descripcion, categoria, valor);
+
+          const acciones = document.createElement("td");
+          const botonEliminar = document.createElement("button");
+          botonEliminar.className = "button button-delete";
+          botonEliminar.type = "button";
+          botonEliminar.textContent = "Eliminar";
+          botonEliminar.setAttribute(
+            "aria-label",
+            `Eliminar gasto: ${gasto.descripcion}`,
+          );
+          botonEliminar.dataset.gastoId = gasto.id;
+          acciones.append(botonEliminar);
+
+          fila.append(descripcion, categoria, valor, acciones);
           lista.append(fila);
         }
       }
@@ -195,6 +208,30 @@
       mostrarGastos(gastos);
       mostrarResumen(resumen);
     }
+
+    document.querySelector("#lista-gastos").addEventListener("click", async (evento) => {
+      const boton = evento.target.closest("button[data-gasto-id]");
+      if (!boton) {
+        return;
+      }
+
+      boton.disabled = true;
+      mostrarMensaje("");
+      try {
+        const respuesta = await fetch(`/api/gastos/${boton.dataset.gastoId}`, {
+          method: "DELETE",
+        });
+        if (!respuesta.ok) {
+          const error = await respuesta.json();
+          throw new Error(error.detail || "No se pudo eliminar el gasto.");
+        }
+        await cargarDatos();
+        mostrarMensaje("Gasto eliminado correctamente.");
+      } catch (error) {
+        boton.disabled = false;
+        mostrarMensaje(error.message || "No se pudo conectar con el servidor.", true);
+      }
+    });
 
     formulario.addEventListener("submit", async (evento) => {
       evento.preventDefault();
