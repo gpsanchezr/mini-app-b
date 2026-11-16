@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f2">
+  <title>Registro de gastos</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Registro de gastos, inicio">
+        <span class="brand-mark" aria-hidden="true">✓</span>
+        <span class="brand-copy"><strong>registro de gastos</strong><small>tus finanzas, en orden</small></span>
+      </a>
+      <span class="privacy-pill"><span></span> Datos en memoria</span>
+    </header>
+
+    <main>
+      <section class="welcome">
+        <div>
+          <p class="eyebrow"><span class="eyebrow-line"></span> CONTROL FINANCIERO PERSONAL</p>
+          <h1>Un poco más de claridad,<br><span>cada día.</span></h1>
+          <p class="welcome-copy">Registra tus gastos y descubre en qué se va tu dinero.</p>
+        </div>
+      </section>
+
+      <section class="stats-grid" aria-label="Resumen de gastos">
+        <article class="stat-card stat-primary">
+          <div class="stat-top"><span class="stat-icon mint-icon" aria-hidden="true">↗</span><span class="stat-label">Total registrado</span></div>
+          <strong class="stat-value" id="total-gastos">0</strong>
+          <span class="stat-foot">Suma de todos tus gastos</span>
+        </article>
+        <article class="stat-card">
+          <div class="stat-top"><span class="stat-icon lilac-icon" aria-hidden="true">▤</span><span class="stat-label">Movimientos</span></div>
+          <strong class="stat-value" id="cantidad-gastos">0</strong>
+          <span class="stat-foot">Gastos registrados</span>
+        </article>
+      </section>
+
+      <p class="status-message" id="mensaje" role="status" aria-live="polite"></p>
+
+      <section class="content-grid">
+        <aside class="panel add-panel">
+          <div class="panel-heading">
+            <div class="heading-icon plus-icon" aria-hidden="true">+</div>
+            <div><h2>Nuevo gasto</h2><p>Anota ese gasto antes de olvidarlo.</p></div>
+          </div>
+          <form id="formulario-gasto" class="expense-form">
+            <label for="descripcion">¿En qué gastaste?</label>
+            <input id="descripcion" name="descripcion" type="text" maxlength="80" placeholder="Ej. Almuerzo" required>
+
+            <label for="valor">¿Cuánto?</label>
+            <div class="amount-input"><span>$</span><input id="valor" name="valor" type="number" min="0.01" step="any" placeholder="0" required></div>
+
+            <label for="categoria">Categoría</label>
+            <div class="select-wrap">
+              <select id="categoria" name="categoria" required>
+                <option value="" disabled selected>Elige una categoría</option>
+                {% for categoria in categorias %}
+                <option value="{{ categoria }}">{{ categoria|capitalize }}</option>
+                {% endfor %}
+              </select>
+              <span aria-hidden="true">⌄</span>
+            </div>
+            <button class="button button-primary" type="submit"><span>+</span> Guardar gasto</button>
+          </form>
+        </aside>
+
+        <section class="panel history-panel">
+          <div class="section-title-row">
+            <div>
+              <p class="eyebrow small-eyebrow">TU ACTIVIDAD</p>
+              <h2>Historial de gastos</h2>
+            </div>
+            <span class="count-badge" id="etiqueta-cantidad">0 movimientos</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>DESCRIPCIÓN</th><th>CATEGORÍA</th><th class="amount-cell">VALOR</th></tr></thead>
+              <tbody id="lista-gastos">
+                <tr><td class="empty-cell" colspan="3"><strong>Cargando gastos…</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer"><span id="cantidad-lista">0 resultados</span><span>Los valores se muestran en tu moneda local</span></div>
+        </section>
+      </section>
+
+      <section class="panel report-panel">
+        <div class="report-heading">
+          <div class="heading-icon chart-icon" aria-hidden="true">▥</div>
+          <div><p class="eyebrow small-eyebrow">ENTIENDE TUS HÁBITOS</p><h2>Totales por categoría</h2></div>
+        </div>
+        <div class="report-list" id="resumen-categorias">
+          {% for categoria in categorias %}
+          <div class="report-item" data-categoria="{{ categoria }}">
+            <div class="report-meta"><span class="report-category">{{ categoria|capitalize }}</span><span class="report-count"></span><strong>0</strong></div>
+            <div class="bar-track" role="img" aria-label="0% del total"><span class="bar-fill bar-color-{{ loop.index0 }}" style="width: 0%"></span></div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+    </main>
+    <footer class="footer"><span>Hecho para ayudarte a tener una vida financiera más tranquila.</span><span>Registro de gastos</span></footer>
+  </div>
+
+  <script>
+    const formulario = document.querySelector("#formulario-gasto");
+    const mensaje = document.querySelector("#mensaje");
+    const formatoNumero = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
+
+    function mostrarMensaje(texto, esError = false) {
+      mensaje.textContent = texto;
+      mensaje.classList.toggle("status-error", esError);
+      mensaje.classList.toggle("status-success", Boolean(texto) && !esError);
+    }
+
+    function mostrarGastos(gastos) {
+      const lista = document.querySelector("#lista-gastos");
+      lista.replaceChildren();
+
+      if (gastos.length === 0) {
+        const fila = document.createElement("tr");
+        const celda = document.createElement("td");
+        celda.className = "empty-cell";
+        celda.colSpan = 3;
+        celda.innerHTML = "<strong>Tu historial empieza aquí</strong><span>Agrega tu primer gasto para ver tu resumen.</span>";
+        fila.append(celda);
+        lista.append(fila);
+      } else {
+        for (const gasto of gastos) {
+          const fila = document.createElement("tr");
+          const descripcion = document.createElement("td");
+          const nombre = document.createElement("span");
+          nombre.className = "expense-name";
+          nombre.textContent = gasto.descripcion;
+          descripcion.append(nombre);
+
+          const categoria = document.createElement("td");
+          const etiqueta = document.createElement("span");
+          etiqueta.className = "category-pill";
+          etiqueta.textContent = gasto.categoria;
+          categoria.append(etiqueta);
+
+          const valor = document.createElement("td");
+          valor.className = "amount-cell amount-value";
+          valor.textContent = formatoNumero.format(gasto.valor);
+          fila.append(descripcion, categoria, valor);
+          lista.append(fila);
+        }
+      }
+
+      const cantidad = gastos.length;
+      document.querySelector("#cantidad-gastos").textContent = cantidad;
+      document.querySelector("#etiqueta-cantidad").textContent =
+        `${cantidad} ${cantidad === 1 ? "movimiento" : "movimientos"}`;
+      document.querySelector("#cantidad-lista").textContent =
+        `${cantidad} ${cantidad === 1 ? "resultado" : "resultados"}`;
+    }
+
+    function mostrarResumen(resumen) {
+      document.querySelector("#total-gastos").textContent =
+        formatoNumero.format(resumen.total);
+
+      for (const [categoria, total] of Object.entries(resumen.por_categoria)) {
+        const elemento = document.querySelector(
+          `[data-categoria="${categoria}"]`,
+        );
+        elemento.querySelector(".report-meta strong").textContent =
+          formatoNumero.format(total);
+        const porcentaje = resumen.total > 0 ? (total / resumen.total) * 100 : 0;
+        const barra = elemento.querySelector(".bar-fill");
+        barra.style.width = `${porcentaje}%`;
+        barra.parentElement.setAttribute(
+          "aria-label",
+          `${porcentaje.toFixed(0)}% del total`,
+        );
+      }
+    }
+
+    async function cargarDatos() {
+      const [respuestaGastos, respuestaResumen] = await Promise.all([
+        fetch("/api/gastos"),
+        fetch("/api/gastos/resumen"),
+      ]);
+      if (!respuestaGastos.ok || !respuestaResumen.ok) {
+        throw new Error("No se pudieron cargar los gastos.");
+      }
+      const [gastos, resumen] = await Promise.all([
+        respuestaGastos.json(),
+        respuestaResumen.json(),
+      ]);
+      mostrarGastos(gastos);
+      mostrarResumen(resumen);
+    }
+
+    formulario.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      mostrarMensaje("");
+      const datos = Object.fromEntries(new FormData(formulario));
+      datos.valor = Number(datos.valor);
+
+      try {
+        const respuesta = await fetch("/api/gastos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(datos),
+        });
+        if (!respuesta.ok) {
+          const error = await respuesta.json();
+          const detalle = Array.isArray(error.detail)
+            ? error.detail.map((item) => item.msg).join(" ")
+            : error.detail;
+          throw new Error(detalle || "No se pudo registrar el gasto.");
+        }
+        formulario.reset();
+        await cargarDatos();
+        mostrarMensaje("Gasto registrado correctamente.");
+      } catch (error) {
+        mostrarMensaje(error.message || "No se pudo conectar con el servidor.", true);
+      }
+    });
+
+    cargarDatos().catch((error) => {
+      mostrarMensaje(error.message || "No se pudieron cargar los gastos.", true);
+    });
+  </script>
+</body>
+</html>
